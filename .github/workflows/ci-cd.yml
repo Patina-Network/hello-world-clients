@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       language:
-        description: Client to roll out in Kubernetes staging via k8s-manifests
+        description: Client image to publish for staging
         type: choice
         options: [all, go, rust, java]
         default: all
@@ -94,6 +94,28 @@ jobs:
           name: image-${{ matrix.language }}
           path: images/*.json
           if-no-files-found: error
+  image-comment:
+    name: Comment image tags
+    needs: [select, publish]
+    if: github.event_name == 'pull_request' && needs.select.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: image-*
+          path: images
+          merge-multiple: true
+      - name: Comment published tags on the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          node scripts/publish-comment.mjs images "$GITHUB_SHA" > "$RUNNER_TEMP/image-comment.md"
+          gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/image-comment.md"
   deployment-pr:
     name: Deploy to Kubernetes
     needs: [select, publish]

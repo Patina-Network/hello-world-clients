@@ -16,21 +16,22 @@ test('release tags select clients and reject invalid versions', () => {
 test('main publishes and deploys production SHA', () => {
   assert.deepEqual(plan('push', 'refs/heads/main', sha), { matrix: { language: ['go', 'rust', 'java'] }, version: '1234567', environment: 'production', publish: true, deploy: true });
 });
-test('same-repo PRs publish and open a staging k8s-manifests PR; forks do neither', () => {
+test('PRs publish a staging image and never deploy; forks do neither', () => {
   const same = plan('pull_request', 'refs/pull/12/merge', sha, true);
   assert.equal(same.version, 'staging-1234567');
   assert.equal(same.environment, 'staging');
   assert.equal(same.publish, true);
-  assert.equal(same.deploy, true);
+  assert.equal(same.deploy, false);
   const fork = plan('pull_request', 'refs/pull/12/merge', sha, false);
   assert.equal(fork.publish, false);
   assert.equal(fork.deploy, false);
 });
-test('manual staging and independent production releases', () => {
+test('manual dispatch publishes a staging image and does not deploy', () => {
   const staging = plan('workflow_dispatch', 'refs/heads/feature', sha, false, 'java');
   assert.deepEqual(staging.matrix.language, ['java']);
   assert.equal(staging.environment, 'staging');
-  assert.equal(staging.deploy, true);
+  assert.equal(staging.publish, true);
+  assert.equal(staging.deploy, false);
   const release = plan('push', 'refs/tags/go-v1.2.3', sha);
   assert.deepEqual(release.matrix.language, ['go']);
   assert.equal(release.version, 'v1.2.3');

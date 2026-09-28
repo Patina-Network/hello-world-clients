@@ -10,11 +10,11 @@ export function plan(event, ref, sha, sameRepository = false, language = 'all') 
   if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error('A full commit SHA is required');
   let selected = [...languages], environment = 'production', version = sha.slice(0, 7), publish = true, deploy = true;
   if (event === 'pull_request') {
-    environment = 'staging'; version = `staging-${version}`; publish = sameRepository; deploy = sameRepository;
+    environment = 'staging'; version = `staging-${version}`; publish = sameRepository; deploy = false;
   } else if (event === 'workflow_dispatch') {
     if (!['all', ...languages].includes(language)) throw new Error('Unknown language');
     selected = language === 'all' ? selected : [language];
-    environment = 'staging'; version = `staging-${version}`;
+    environment = 'staging'; version = `staging-${version}`; deploy = false;
   } else if (event === 'push' && ref.startsWith('refs/tags/')) {
     [selected, version] = metadata(ref.slice('refs/tags/'.length));
   } else if (event !== 'push' || ref !== 'refs/heads/main') {
