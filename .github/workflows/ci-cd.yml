@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       language:
-        description: Client to deploy to staging
+        description: Client to roll out in Kubernetes staging via k8s-manifests
         type: choice
         options: [all, go, rust, java]
         default: all
@@ -38,10 +38,10 @@ jobs:
   verify:
     uses: ./.github/workflows/verify.yml
   publish:
+    name: Publish image
     needs: [select, verify]
     if: needs.select.outputs.publish == 'true'
     runs-on: ubuntu-latest
-    environment: ${{ needs.select.outputs.environment }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
@@ -95,6 +95,7 @@ jobs:
           path: images/*.json
           if-no-files-found: error
   deployment-pr:
+    name: Deploy to Kubernetes
     needs: [select, publish]
     if: needs.select.outputs.deploy == 'true'
     runs-on: ubuntu-latest
@@ -140,11 +141,10 @@ jobs:
           token: ${{ steps.app.outputs.token }}
           path: deployment
           branch: clients/${{ needs.select.outputs.environment }}/${{ needs.select.outputs.version }}/${{ github.run_id }}
-          commit-message: 'Deploy hello-world clients to ${{ needs.select.outputs.environment }}: ${{ needs.select.outputs.version }}'
-          title: 'Deploy hello-world clients to ${{ needs.select.outputs.environment }}: ${{ needs.select.outputs.version }}'
+          commit-message: 'Deploy hello-world clients to Kubernetes ${{ needs.select.outputs.environment }}: ${{ needs.select.outputs.version }}'
+          title: 'Deploy hello-world clients to Kubernetes ${{ needs.select.outputs.environment }}: ${{ needs.select.outputs.version }}'
           body: |
-            Deploy images built and tested from ${{ github.repository }}@${{ github.sha }}.
-            Version: `${{ needs.select.outputs.version }}`. Environment: `${{ needs.select.outputs.environment }}`.
-            Published digests are recorded in the image artifacts of this workflow run.
-            Only existing newTag fields are updated, following Codebloom’s deployment flow.
-            Flux handles rollout after this PR is merged. Kubernetes resources remain in this repository.
+            Roll out images built and tested from ${{ github.repository }}@${{ github.sha }} through Kubernetes.
+            Version: `${{ needs.select.outputs.version }}`. Cluster overlay: `${{ needs.select.outputs.environment }}`.
+            This PR only updates existing Kustomize `newTag` fields in `k8s-manifests`, matching Codebloom and hello-world-grpc-service.
+            Merge applies the Deployment via Flux (`kubectl` equivalent on the cluster). Do not apply from GitHub Actions.
