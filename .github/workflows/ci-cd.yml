@@ -1,0 +1,150 @@
+name: CI/CD
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      language:
+        description: Client to deploy to staging
+        type: choice
+        options: [all, go, rust, java]
+        default: all
+  push:
+    branches: [main]
+    tags: ['v*', 'go-v*', 'rust-v*', 'java-v*']
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.release.outputs.matrix }}
+      version: ${{ steps.release.outputs.version }}
+      environment: ${{ steps.release.outputs.environment }}
+      publish: ${{ steps.release.outputs.publish }}
+      deploy: ${{ steps.release.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - id: release
+        env:
+          SAME_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          CLIENT_LANGUAGE: ${{ inputs.language }}
+        run: node scripts/release-metadata.mjs >> "$GITHUB_OUTPUT"
+  verify:
+    uses: ./.github/workflows/verify.yml
+  publish:
+    needs: [select, verify]
+    if: needs.select.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.select.outputs.environment }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PAT }}
+      - name: Build and publish
+        id: image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          target: ${{ matrix.language }}
+          build-args: CLIENT_LANGUAGE=${{ matrix.language }}
+          platforms: linux/amd64
+          push: true
+          tags: |
+            patinanetwork/hello-world-client-${{ matrix.language }}:${{ needs.select.outputs.version }}
+            patinanetwork/hello-world-client-${{ matrix.language }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.select.outputs.version }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.language }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.language }}
+      - name: Record immutable image reference
+        env:
+          LANGUAGE: ${{ matrix.language }}
+          DIGEST: ${{ steps.image.outputs.digest }}
+          VERSION: ${{ needs.select.outputs.version }}
+        run: |
+          mkdir -p images
+          node --input-type=module <<'JS'
+          import { writeFileSync } from 'node:fs';
+          const { LANGUAGE: language, DIGEST: digest, VERSION: version } = process.env;
+          writeFileSync(`images/${language}.json`, JSON.stringify({
+            language, image: `patinanetwork/hello-world-client-${language}`, digest, version,
+          }));
+          JS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: image-${{ matrix.language }}
+          path: images/*.json
+          if-no-files-found: error
+  deployment-pr:
+    needs: [select, publish]
+    if: needs.select.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.select.outputs.environment }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Authenticate to the separate deployment repository
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349
+        id: app
+        with:
+          app-id: ${{ secrets._GITHUB_APP_APP_ID }}
+          private-key: ${{ secrets._GITHUB_APP_PEM_CONTENT }}
+          owner: Patina-Network
+          repositories: k8s-manifests
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Patina-Network/k8s-manifests
+          token: ${{ steps.app.outputs.token }}
+          path: deployment
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: image-*
+          path: images
+          merge-multiple: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.25'
+          cache: false
+      - name: Install Kustomize
+        run: go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.1
+      - name: Update existing deployment image references
+        env:
+          DEPLOYMENT_ENVIRONMENT: ${{ needs.select.outputs.environment }}
+          EXPECTED_LANGUAGES: ${{ join(fromJSON(needs.select.outputs.matrix).language, ',') }}
+        run: node scripts/update-deployment.mjs deployment images "$DEPLOYMENT_ENVIRONMENT" "$EXPECTED_LANGUAGES"
+      - name: Open deployment pull request
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676
+        with:
+          token: ${{ steps.app.outputs.token }}
+          path: deployment
+          branch: clients/${{ needs.select.outputs.environment }}/${{ needs.select.outputs.version }}/${{ github.run_id }}
+          commit-message: 'Deploy hello-world clients to ${{ needs.select.outputs.environment }}: ${{ needs.select.outputs.version }}'
+          title: 'Deploy hello-world clients to ${{ needs.select.outputs.environment }}: ${{ needs.select.outputs.version }}'
+          body: |
+            Deploy images built and tested from ${{ github.repository }}@${{ github.sha }}.
+            Version: `${{ needs.select.outputs.version }}`. Environment: `${{ needs.select.outputs.environment }}`.
+            Published digests are recorded in the image artifacts of this workflow run.
+            Only existing newTag fields are updated, following Codebloom’s deployment flow.
+            Flux handles rollout after this PR is merged. Kubernetes resources remain in this repository.
