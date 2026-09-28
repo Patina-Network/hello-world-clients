@@ -13,7 +13,7 @@ import (
 	"time"
 
 	pb "github.com/Patina-Network/hello-world-clients/backends/go/gen/helloworld"
-	"github.com/Patina-Network/hello-world-clients/backends/go/internal/httpapi"
+	"github.com/Patina-Network/hello-world-clients/backends/go/internal/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -48,7 +48,7 @@ func run() error {
 		return err
 	}
 	defer conn.Close()
-	server := &http.Server{Addr: env("HTTP_ADDR", ":8080"), Handler: (httpapi.API{Client: pb.NewGreeterServiceClient(conn), Timeout: timeout}).Handler(env("STATIC_DIR", "../../frontend/dist")), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 35 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Addr: env("HTTP_ADDR", ":8080"), Handler: (api.API{Client: pb.NewGreeterServiceClient(conn), Timeout: timeout}).Handler(env("STATIC_DIR", "../../frontend/dist")), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 35 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	done := make(chan error, 1)

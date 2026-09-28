@@ -1,4 +1,4 @@
-package httpapi
+package api
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	pb "github.com/Patina-Network/hello-world-clients/backends/go/gen/helloworld"
+	"github.com/Patina-Network/hello-world-clients/backends/go/internal/api/greetings"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -135,7 +136,7 @@ func TestErrorsAndValidation(t *testing.T) {
 		{"GET", "/api/greetings?recipientName=missing", "", 404},
 		{"POST", "/api/greetings", `{`, 400}, {"POST", "/api/greetings", `{}`, 400},
 		{"POST", "/api/greetings", `{"senderName":"A","recipientName":"B","greeting":"hi","unknown":1}`, 400},
-		{"POST", "/api/greetings", strings.Repeat("x", MaxBody+1), 413},
+		{"POST", "/api/greetings", strings.Repeat("x", greetings.MaxBody+1), 413},
 		{"POST", "/api/greetings", `{"senderName":"A","recipientName":"B","greeting":"hi"} {}`, 400},
 		{"GET", "/healthz", "", 200},
 	}

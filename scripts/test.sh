@@ -13,7 +13,7 @@ case "${1:-all}" in
     cargo clippy --manifest-path backends/rust/Cargo.toml --locked --all-targets -- -D warnings
     cargo test --manifest-path backends/rust/Cargo.toml --locked
     ;;
-  java) mvn -B -ntp -f backends/java/pom.xml verify ;;
+  java) mvn -B -ntp -f backends/java/pom.xml spotless:check checkstyle:check verify ;;
   frontend)
     cd frontend
     npm ci
