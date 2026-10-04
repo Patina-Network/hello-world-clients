@@ -1,0 +1,34 @@
+name: Build client image
+description: Builds a client image, smoke tests it, and pushes it to Docker Hub
+
+inputs:
+  LANGUAGE:
+    description: "go, rust, or java"
+    required: true
+  ENVIRONMENT:
+    description: "'staging' or 'production'"
+    required: true
+  SHA:
+    description: "Full commit SHA the image is built from"
+    required: true
+  PR_ID:
+    description: "Pull request to comment the pushed tags on"
+    required: false
+    default: ""
+  ARCH:
+    description: "Target architecture to build natively (amd64 or arm64). arm64 pushes to a separate -arm repository."
+    required: false
+    default: amd64
+
+runs:
+  using: composite
+  steps:
+    - name: Build, smoke test, and push image
+      shell: bash
+      run: |
+        bun run .github/scripts/src/build-image \
+          --language "${{ inputs.LANGUAGE }}" \
+          --environment "${{ inputs.ENVIRONMENT }}" \
+          --sha "${{ inputs.SHA }}" \
+          --prId "${{ inputs.PR_ID }}" \
+          --arch "${{ inputs.ARCH }}"

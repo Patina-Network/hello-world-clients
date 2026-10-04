@@ -1,0 +1,14 @@
+name: Pre-test
+description: Run format, lint, and compile checks for one client (no tests)
+
+inputs:
+  LANGUAGE:
+    description: "frontend, go, rust, or java"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Run pre-test checks
+      shell: bash
+      run: bun run .github/scripts/src/pretest --language "${{ inputs.LANGUAGE }}"
