@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/Patina-Network/hello-world-clients/backends/go/gen/helloworld"
 	"github.com/Patina-Network/hello-world-clients/backends/go/internal/api/greetings"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -19,6 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	pb "patinanetwork.org/grpc/hello-world-grpc-service"
 )
 
 type fakeGreeter struct {

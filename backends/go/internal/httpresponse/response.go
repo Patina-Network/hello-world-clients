@@ -1,4 +1,4 @@
-package exception
+package httpresponse
 
 import (
 	"encoding/json"
