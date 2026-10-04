@@ -1,13 +1,25 @@
-.PHONY: test test-go test-rust test-java test-frontend generate-go frontend
+LANGUAGES := frontend go rust java
+SCRIPTS := bun run .github/scripts/src
 
-test:
-	bash scripts/test.sh all
+.PHONY: test pretest ci-scripts frontend \
+	$(addprefix test-,$(LANGUAGES)) $(addprefix pretest-,$(LANGUAGES))
 
-test-go test-rust test-java test-frontend:
-	bash scripts/test.sh $(@:test-%=%)
+test: $(addprefix test-,$(LANGUAGES))
 
-generate-go:
-	bash scripts/generate-go.sh
+pretest: $(addprefix pretest-,$(LANGUAGES))
+
+$(addprefix test-,$(LANGUAGES)): .github/scripts/node_modules
+	$(SCRIPTS)/test --language $(@:test-%=%)
+
+$(addprefix pretest-,$(LANGUAGES)): .github/scripts/node_modules
+	$(SCRIPTS)/pretest --language $(@:pretest-%=%)
+
+ci-scripts: .github/scripts/node_modules
+	bun run --cwd .github/scripts test
+
+.github/scripts/node_modules: .github/scripts/bun.lock
+	bun install --cwd .github/scripts --frozen-lockfile
+	@touch $@
 
 frontend:
 	cd frontend && npm ci && npm run build

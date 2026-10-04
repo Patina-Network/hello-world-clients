@@ -2,8 +2,6 @@ pub mod api;
 pub mod common;
 pub mod utilities;
 
-pub mod pb {
-    tonic::include_proto!("helloworld");
-}
+pub use hello_world_grpc_service::helloworld as pb;
 
 pub use api::{AppState, app};

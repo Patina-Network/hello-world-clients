@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+hello-world-grpc-service = { version = "=1.0.1", registry = "patina" }
 axum = "0.8"
 prost = "0.14"
 prost-types = "0.14"
@@ -15,10 +16,6 @@ tonic-prost = "0.14"
 tower-http = { version = "0.6", features = ["fs", "trace", "timeout"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-
-[build-dependencies]
-tonic-prost-build = "0.14"
-protoc-bin-vendored = "3"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
