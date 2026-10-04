@@ -1,34 +1,42 @@
 package org.patinanetwork.clients.utilities.exception;
 
-import com.sun.net.httpserver.HttpExchange;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.patinanetwork.clients.common.Responses;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+@RestControllerAdvice
 public final class ControllerExceptionHandler {
     private static final System.Logger LOG = System.getLogger(ControllerExceptionHandler.class.getName());
 
-    private ControllerExceptionHandler() {}
-
-    public static void handle(HttpExchange exchange, Exception exception) throws IOException {
+    @ExceptionHandler(Exception.class)
+    public void handle(Exception exception, HttpServletResponse response) throws IOException {
+        if (exception instanceof HttpRequestMethodNotSupportedException method) {
+            response.setHeader("Allow", String.join(", ", method.getSupportedMethods()));
+            Responses.error(response, 405, "method not allowed");
+            return;
+        }
         if (exception instanceof StatusRuntimeException statusException) {
             Status.Code code = statusException.getStatus().getCode();
             LOG.log(System.Logger.Level.WARNING, "gRPC request failed: {0}", code);
             Failure failure = grpcError(code);
-            Responses.error(exchange, failure.status(), failure.message());
+            Responses.error(response, failure.status(), failure.message());
             return;
         }
         if (exception instanceof ValidationException validation) {
-            Responses.error(exchange, validation.status(), validation.getMessage());
+            Responses.error(response, validation.status(), validation.getMessage());
             return;
         }
         if (exception instanceof IllegalArgumentException) {
-            Responses.error(exchange, 400, "invalid request");
+            Responses.error(response, 400, "invalid request");
             return;
         }
         LOG.log(System.Logger.Level.ERROR, "HTTP request failed", exception);
-        Responses.error(exchange, 500, "internal error");
+        Responses.error(response, 500, "internal error");
     }
 
     private static Failure grpcError(Status.Code code) {

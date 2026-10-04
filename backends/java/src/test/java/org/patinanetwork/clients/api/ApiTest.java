@@ -4,35 +4,52 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.Timestamp;
-import com.sun.net.httpserver.HttpServer;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
-import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
+import org.patinanetwork.clients.api.echo.EchoController;
+import org.patinanetwork.clients.api.greetings.GreetingsController;
+import org.patinanetwork.clients.api.health.HealthController;
+import org.patinanetwork.clients.config.GrpcClient;
+import org.patinanetwork.clients.utilities.StaticContent;
+import org.patinanetwork.clients.utilities.exception.ControllerExceptionHandler;
 import org.patinanetwork.grpc.helloworld.v1.*;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
+import org.springframework.context.annotation.Import;
 
 class ApiTest {
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    @Import({
+        EchoController.class,
+        GreetingsController.class,
+        HealthController.class,
+        StaticContent.class,
+        ControllerExceptionHandler.class
+    })
+    static class TestApplication {}
+
     @TempDir
     private Path staticDir;
 
     private Server grpc;
     private ManagedChannel channel;
-    private HttpServer http;
-    private ExecutorService executor;
+    private ServletWebServerApplicationContext http;
     private HttpClient client;
     private String base;
     private final AtomicReference<SayGreetingRequest> sent = new AtomicReference<>();
@@ -91,21 +108,18 @@ class ApiTest {
                 .build()
                 .start();
         channel = InProcessChannelBuilder.forName(name).directExecutor().build();
-        http = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        executor = Executors.newVirtualThreadPerTaskExecutor();
-        http.setExecutor(executor);
-        http.createContext(
-                "/", new Api(GreeterServiceGrpc.newBlockingStub(channel), Duration.ofMillis(150), staticDir));
-        http.start();
-        base = "http://127.0.0.1:" + http.getAddress().getPort();
+        http = (ServletWebServerApplicationContext) new SpringApplicationBuilder(TestApplication.class)
+                .initializers(context ->
+                        context.getBeanFactory().registerSingleton("grpcClient", new GrpcClient(channel, 150)))
+                .run("--server.port=0", "--server.address=127.0.0.1", "--client.static-dir=" + staticDir);
+        base = "http://127.0.0.1:" + http.getWebServer().getPort();
         client = HttpClient.newHttpClient();
     }
 
     @AfterEach
     void cleanup() throws Exception {
         client.close();
-        http.stop(0);
-        executor.close();
+        http.close();
         channel.shutdownNow();
         grpc.shutdownNow();
         channel.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);
@@ -169,12 +183,24 @@ class ApiTest {
         }
         assertEquals(413, call("POST", "/api/greetings", "x".repeat(16385)).statusCode());
         assertEquals(200, call("GET", "/healthz", "").statusCode());
+        var method = call("DELETE", "/api/greetings", "");
+        assertEquals(405, method.statusCode());
+        assertTrue(method.headers().firstValue("Allow").orElse("").contains("GET"));
+        var unsupported = client.send(
+                HttpRequest.newBuilder(URI.create(base + "/api/greetings"))
+                        .header("Content-Type", "text/plain")
+                        .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals(415, unsupported.statusCode());
+        assertEquals(404, call("GET", "/api/unknown", "").statusCode());
     }
 
     @Test
     void servesFrontendAndRejectsTraversal() throws Exception {
         java.nio.file.Files.writeString(staticDir.resolve("index.html"), "<html>client</html>");
         assertEquals("<html>client</html>", call("GET", "/", "").body());
-        assertEquals(404, call("GET", "/../pom.xml", "").statusCode());
+        // Tomcat rejects traversal before Spring dispatches the request.
+        assertEquals(400, call("GET", "/../pom.xml", "").statusCode());
     }
 }

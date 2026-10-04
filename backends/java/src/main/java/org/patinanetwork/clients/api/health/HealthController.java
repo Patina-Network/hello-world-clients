@@ -1,13 +1,13 @@
 package org.patinanetwork.clients.api.health;
 
-import com.sun.net.httpserver.HttpExchange;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import org.patinanetwork.clients.common.Responses;
+import java.util.Map;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
+@RestController
 public final class HealthController {
-    public void handle(HttpExchange exchange) throws IOException {
-        Responses.requireMethod(exchange, "GET");
-        Responses.send(exchange, 200, "application/json", "{\"status\":\"ok\"}".getBytes(StandardCharsets.UTF_8));
+    @GetMapping("/healthz")
+    public Map<String, String> health() {
+        return Map.of("status", "ok");
     }
 }

@@ -1,18 +1,28 @@
 package org.patinanetwork.clients.api.echo;
 
-import com.sun.net.httpserver.HttpExchange;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.patinanetwork.clients.common.Responses;
+import org.patinanetwork.clients.config.GrpcClient;
 import org.patinanetwork.grpc.helloworld.v1.EchoHelloRequest;
-import org.patinanetwork.grpc.helloworld.v1.GreeterServiceGrpc;
+import org.springframework.web.bind.annotation.*;
 
+@RestController
 public final class EchoController {
-    public void handle(HttpExchange exchange, GreeterServiceGrpc.GreeterServiceBlockingStub stub) throws IOException {
-        Responses.requireMethod(exchange, "GET");
-        String name = Responses.query(exchange).getOrDefault("name", "");
+    private final GrpcClient client;
+
+    public EchoController(GrpcClient client) {
+        this.client = client;
+    }
+
+    @GetMapping("/api/echo")
+    public void handle(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        var stub = client.stub();
+        String name = Responses.query(request).getOrDefault("name", "");
         Responses.validate(name, 256, "name");
         Responses.reply(
-                exchange,
+                response,
                 stub.echoHello(EchoHelloRequest.newBuilder().setName(name).build()));
     }
 }
