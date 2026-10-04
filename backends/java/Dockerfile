@@ -11,7 +11,7 @@ RUN npm run build
 FROM maven:3.9-eclipse-temurin-21 AS java-build
 WORKDIR /src/backends/java
 COPY backends/java/ ./
-RUN --mount=type=cache,target=/root/.m2 mvn -B -ntp -DskipTests package
+RUN mvn -B -ntp -o -Dmaven.repo.local=/src/backends/java/.m2/repository -DskipTests package
 
 FROM eclipse-temurin:21-jre-jammy AS java
 WORKDIR /app

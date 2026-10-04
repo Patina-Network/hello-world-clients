@@ -15,6 +15,7 @@ import {
   requireEnv,
   shortSha,
 } from "../release";
+import { vendorDependencies } from "../vendor/deps";
 import { smokeTest } from "./smoke";
 
 const { language, environment, sha, prId } = await yargs(hideBin(process.argv))
@@ -51,6 +52,8 @@ async function main() {
     environment === "staging" ?
       [`staging-${short}`, `sha-${sha}`]
     : [short, `sha-${sha}`];
+
+  await vendorDependencies(language);
 
   await using dockerClient = await DockerClient.create(
     dockerHubUsername,

@@ -1,8 +1,10 @@
 LANGUAGES := frontend go rust java
+CLIENTS := go rust java
 SCRIPTS := bun run .github/scripts/src
 
-.PHONY: test pretest ci-scripts frontend \
-	$(addprefix test-,$(LANGUAGES)) $(addprefix pretest-,$(LANGUAGES))
+.PHONY: test pretest vendor ci-scripts frontend \
+	$(addprefix test-,$(LANGUAGES)) $(addprefix pretest-,$(LANGUAGES)) \
+	$(addprefix vendor-,$(CLIENTS))
 
 test: $(addprefix test-,$(LANGUAGES))
 
@@ -13,6 +15,11 @@ $(addprefix test-,$(LANGUAGES)): .github/scripts/node_modules
 
 $(addprefix pretest-,$(LANGUAGES)): .github/scripts/node_modules
 	$(SCRIPTS)/pretest --language $(@:pretest-%=%)
+
+vendor: $(addprefix vendor-,$(CLIENTS))
+
+$(addprefix vendor-,$(CLIENTS)): .github/scripts/node_modules
+	$(SCRIPTS)/vendor --language $(@:vendor-%=%)
 
 ci-scripts: .github/scripts/node_modules
 	bun run --cwd .github/scripts test

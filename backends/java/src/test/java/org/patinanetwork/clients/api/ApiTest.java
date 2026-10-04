@@ -200,7 +200,6 @@ class ApiTest {
     void servesFrontendAndRejectsTraversal() throws Exception {
         java.nio.file.Files.writeString(staticDir.resolve("index.html"), "<html>client</html>");
         assertEquals("<html>client</html>", call("GET", "/", "").body());
-        // Tomcat rejects traversal before Spring dispatches the request.
         assertEquals(400, call("GET", "/../pom.xml", "").statusCode());
     }
 }

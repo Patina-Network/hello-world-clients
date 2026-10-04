@@ -5,3 +5,8 @@
 **/dist/
 **/target/
 **/coverage/
+
+backends/go/vendor/
+backends/rust/vendor/
+backends/rust/vendor.toml
+backends/java/.m2/

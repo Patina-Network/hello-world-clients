@@ -15,9 +15,6 @@ export function shortSha(sha: string) {
   return sha.slice(0, 7);
 }
 
-/**
- * `vX.Y.Z` releases every client; `<language>-vX.Y.Z` releases only that client.
- */
 export function parseReleaseTag(tag: string): {
   languages: Language[];
   version: string;

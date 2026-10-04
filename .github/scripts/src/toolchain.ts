@@ -1,7 +1,3 @@
-/**
- * The Go SDK is served from the Patina package registry, which has no checksum
- * database entry, so `patinanetwork.org` modules skip sumdb verification.
- */
 export function goEnv() {
   return {
     ...process.env,

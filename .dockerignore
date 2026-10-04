@@ -4,3 +4,4 @@
 **/target
 **/dist
 **/coverage
+!backends/rust/vendor/**

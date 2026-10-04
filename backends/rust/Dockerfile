@@ -12,8 +12,9 @@ FROM rust:1.93-bookworm AS rust-build
 COPY .cargo/ /src/.cargo/
 WORKDIR /src/backends/rust
 COPY backends/rust/ ./
-RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/src/backends/rust/target \
-    cargo build --locked --release && cp target/release/hello-world-client-rust /server
+COPY backends/rust/vendor.toml .cargo/config.toml
+RUN --mount=type=cache,target=/src/backends/rust/target \
+    cargo build --locked --offline --release && cp target/release/hello-world-client-rust /server
 
 FROM gcr.io/distroless/cc-debian12:nonroot AS rust
 WORKDIR /app

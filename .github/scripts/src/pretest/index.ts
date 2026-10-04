@@ -17,7 +17,6 @@ async function main() {
   switch (language) {
     case "frontend": {
       await $`npm ci`.cwd("frontend");
-      // `build` typechecks before bundling.
       await $`npm run build`.cwd("frontend");
       return;
     }

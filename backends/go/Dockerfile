@@ -9,12 +9,10 @@ ENV VITE_CLIENT_LANGUAGE=${CLIENT_LANGUAGE}
 RUN npm run build
 
 FROM golang:1.25-bookworm AS go-build
-ENV GOPROXY=https://pkg.vpn.patinanetwork.org/go/go,https://proxy.golang.org,direct GONOSUMDB=patinanetwork.org
+ENV GOFLAGS=-mod=vendor GOPROXY=off
 WORKDIR /src/backends/go
-COPY backends/go/go.mod backends/go/go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY backends/go/ ./
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
 
 FROM gcr.io/distroless/static-debian12:nonroot AS go

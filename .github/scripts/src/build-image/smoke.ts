@@ -2,10 +2,6 @@ import { $ } from "bun";
 
 const BASE_URL = "http://127.0.0.1:8080";
 
-/**
- * Starts the image with an unreachable gRPC target and checks that the HTTP
- * server, static frontend, and gRPC error mapping all work.
- */
 export async function smokeTest(image: string) {
   const container = (
     await $`docker run --detach --publish 127.0.0.1:8080:8080 --env GRPC_TARGET=127.0.0.1:1 --env GRPC_TIMEOUT_MS=1000 ${image}`.text()
@@ -37,15 +33,11 @@ export async function smokeTest(image: string) {
 async function waitForHealthy() {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    try {
-      const res = await fetch(`${BASE_URL}/healthz`, {
-        signal: AbortSignal.timeout(3_000),
-      });
-      if (res.ok) {
-        return;
-      }
-    } catch {
-      // The server is not accepting connections yet.
+    const res = await fetch(`${BASE_URL}/healthz`, {
+      signal: AbortSignal.timeout(3_000),
+    }).catch(() => null);
+    if (res?.ok) {
+      return;
     }
     await Bun.sleep(1_000);
   }
