@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseReleaseTag, shortSha } from "./release";
+import { dockerRepository, parseReleaseTag, shortSha } from "./release";
 
 describe("parseReleaseTag", () => {
   test("vX.Y.Z releases every client", () => {
@@ -25,6 +25,24 @@ describe("parseReleaseTag", () => {
     "js-v1.0.0",
   ])("rejects %p", (tag) => {
     expect(() => parseReleaseTag(tag)).toThrow();
+  });
+});
+
+describe("dockerRepository", () => {
+  test("amd64 uses the language repository", () => {
+    expect(dockerRepository("go")).toBe("hello-world-client-go");
+    expect(dockerRepository("rust", "amd64")).toBe("hello-world-client-rust");
+    expect(dockerRepository("java", "amd64")).toBe("hello-world-client-java");
+  });
+
+  test("arm64 uses a separate -arm repository", () => {
+    expect(dockerRepository("go", "arm64")).toBe("hello-world-client-go-arm");
+    expect(dockerRepository("rust", "arm64")).toBe(
+      "hello-world-client-rust-arm",
+    );
+    expect(dockerRepository("java", "arm64")).toBe(
+      "hello-world-client-java-arm",
+    );
   });
 });
 

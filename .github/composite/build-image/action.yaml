@@ -15,6 +15,10 @@ inputs:
     description: "Pull request to comment the pushed tags on"
     required: false
     default: ""
+  ARCH:
+    description: "Target architecture to build natively (amd64 or arm64). arm64 pushes to a separate -arm repository."
+    required: false
+    default: amd64
 
 runs:
   using: composite
@@ -26,4 +30,5 @@ runs:
           --language "${{ inputs.LANGUAGE }}" \
           --environment "${{ inputs.ENVIRONMENT }}" \
           --sha "${{ inputs.SHA }}" \
-          --prId "${{ inputs.PR_ID }}"
+          --prId "${{ inputs.PR_ID }}" \
+          --arch "${{ inputs.ARCH }}"

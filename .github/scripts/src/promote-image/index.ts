@@ -3,13 +3,14 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
 import {
+  ARCHITECTURES,
   dockerRepository,
   parseReleaseTag,
   requireEnv,
   shortSha,
 } from "../release";
 
-const { releaseTag, sha } = await yargs(hideBin(process.argv))
+const { releaseTag, sha, arch } = await yargs(hideBin(process.argv))
   .option("releaseTag", {
     type: "string",
     describe: "For example, v1.2.3 or go-v1.2.3",
@@ -19,6 +20,12 @@ const { releaseTag, sha } = await yargs(hideBin(process.argv))
     type: "string",
     describe: "Full SHA of the tagged commit; its image must already exist",
     demandOption: true,
+  })
+  .option("arch", {
+    choices: ARCHITECTURES,
+    describe:
+      "Image architecture to promote. Must match the runner's architecture",
+    default: "amd64" as const,
   })
   .strict()
   .parse();
@@ -35,7 +42,7 @@ async function main() {
     await dockerClient.promoteDockerImage({
       originalTag: shortSha(sha),
       newGithubTags: [version, "latest"],
-      repository: dockerRepository(language),
+      repository: dockerRepository(language, arch),
     });
   }
 }

@@ -8,6 +8,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
 import {
+  ARCHITECTURES,
   dockerRepository,
   GITHUB_OWNER,
   GITHUB_REPOSITORY,
@@ -18,7 +19,9 @@ import {
 import { vendorDependencies } from "../vendor/deps";
 import { smokeTest } from "./smoke";
 
-const { language, environment, sha, prId } = await yargs(hideBin(process.argv))
+const { language, environment, sha, prId, arch } = await yargs(
+  hideBin(process.argv),
+)
   .option("language", {
     choices: LANGUAGES,
     demandOption: true,
@@ -38,6 +41,12 @@ const { language, environment, sha, prId } = await yargs(hideBin(process.argv))
     describe: "Pull request to comment the pushed tags on; empty skips it",
     default: "",
   })
+  .option("arch", {
+    choices: ARCHITECTURES,
+    describe:
+      "Target architecture, built natively on a matching runner. arm64 pushes to a separate -arm repository",
+    default: "amd64" as const,
+  })
   .strict()
   .parse();
 
@@ -45,7 +54,7 @@ async function main() {
   const dockerHubUsername = requireEnv("DOCKER_HUB_USERNAME");
   const dockerHubPat = requireEnv("DOCKER_HUB_PAT");
 
-  const repository = dockerRepository(language);
+  const repository = dockerRepository(language, arch);
   const image = `${dockerHubUsername}/${repository}`;
   const short = shortSha(sha);
   const tags =
@@ -65,7 +74,7 @@ async function main() {
     dockerFileLocation: `backends/${language}/Dockerfile`,
     tags,
     shouldUpload: false,
-    platforms: ["linux/amd64"],
+    platforms: [`linux/${arch}`],
   });
 
   await smokeTest(`${image}:${tags[0]}`);

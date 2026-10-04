@@ -4,8 +4,15 @@ export const GITHUB_REPOSITORY = "hello-world-clients";
 export const LANGUAGES = ["go", "rust", "java"] as const;
 export type Language = (typeof LANGUAGES)[number];
 
-export function dockerRepository(language: Language) {
-  return `hello-world-client-${language}`;
+export const ARCHITECTURES = ["amd64", "arm64"] as const;
+export type Architecture = (typeof ARCHITECTURES)[number];
+
+export function dockerRepository(
+  language: Language,
+  arch: Architecture = "amd64",
+) {
+  const repository = `hello-world-client-${language}`;
+  return arch === "arm64" ? `${repository}-arm` : repository;
 }
 
 export function shortSha(sha: string) {

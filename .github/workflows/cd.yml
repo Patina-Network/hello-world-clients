@@ -19,8 +19,16 @@ concurrency:
 
 jobs:
   promoteImage:
-    name: Promote images to ${{ github.ref_name }}
-    runs-on: ubuntu-latest
+    name: Promote images to ${{ github.ref_name }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
 
     steps:
       - name: Checkout Repository
@@ -39,6 +47,7 @@ jobs:
         with:
           RELEASE_TAG: ${{ github.ref_name }}
           SHA: ${{ github.sha }}
+          ARCH: ${{ matrix.arch }}
 
   deployProduction:
     name: Deploy to production
