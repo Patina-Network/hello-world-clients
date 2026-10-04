@@ -1,0 +1,19 @@
+name: Deploy clients
+description: Updates the production client image tags in k8s-manifests
+
+inputs:
+  RELEASE_TAG:
+    description: "Deploy the clients and version named by this tag, for example v1.2.3 or go-v1.2.3"
+    required: false
+    default: ""
+  SHA:
+    description: "Deploy every client's image built from this commit. Set exactly one of RELEASE_TAG or SHA."
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Update k8s-manifests
+      shell: bash
+      run: bun run .github/scripts/src/deploy --releaseTag "${{ inputs.RELEASE_TAG }}" --sha "${{ inputs.SHA }}"

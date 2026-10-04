@@ -1,0 +1,14 @@
+name: Test
+description: Run the test suite for one client
+
+inputs:
+  LANGUAGE:
+    description: "frontend, go, rust, or java"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Run tests
+      shell: bash
+      run: bun run .github/scripts/src/test --language "${{ inputs.LANGUAGE }}"

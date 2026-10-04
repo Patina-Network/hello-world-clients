@@ -1,0 +1,17 @@
+name: Promote client images to release tag
+description: Re-tags the images built from the tagged commit with the release version
+
+inputs:
+  RELEASE_TAG:
+    description: "For example, v1.2.3 or go-v1.2.3"
+    required: true
+  SHA:
+    description: "Full SHA of the tagged commit"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Promote images
+      shell: bash
+      run: bun run .github/scripts/src/promote-image --releaseTag "${{ inputs.RELEASE_TAG }}" --sha "${{ inputs.SHA }}"

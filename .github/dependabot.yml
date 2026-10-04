@@ -3,8 +3,14 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: {interval: weekly}
+  - package-ecosystem: bun
+    directory: /.github/scripts
+    schedule: {interval: weekly}
   - package-ecosystem: docker
-    directory: /
+    directories:
+      - /backends/go
+      - /backends/java
+      - /backends/rust
     schedule: {interval: weekly}
   - package-ecosystem: npm
     directory: /frontend

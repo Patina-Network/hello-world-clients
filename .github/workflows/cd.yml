@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/SchemaStore/schemastore/refs/heads/master/src/schemas/json/github-workflow.json
+name: CD
+run-name: Running continuous deployment on ${{ github.actor }}'s commits
+
+permissions:
+  contents: read
+
+# vX.Y.Z releases every client; <language>-vX.Y.Z releases one. The tagged
+# commit must already have passed CI on main, which built the images that
+# get promoted here.
+on:
+  push:
+    tags:
+      - "v*"
+      - "go-v*"
+      - "rust-v*"
+      - "java-v*"
+
+# Releases must never interleave: each one re-tags images and edits the same
+# production manifests, so a second tag waits for the first to finish.
+concurrency:
+  group: cd
+  cancel-in-progress: false
+
+jobs:
+  promoteImage:
+    name: Promote images to ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Pipeline
+        uses: tahminator/pipeline/actions/setup@f972931ee457aaa5c9961693055d60ddb272c3c2 # 1.0.91
+        with:
+          SECRETS: ${{ toJSON(secrets) }}
+
+      - name: Test CI scripts
+        run: bun run --cwd .github/scripts test
+
+      - name: Promote images
+        uses: ./.github/composite/promote-image
+        with:
+          RELEASE_TAG: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+
+  deployProduction:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    needs: [promoteImage]
+
+    # Shared with ci.yml: both edit the same k8s-manifests files.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Pipeline
+        uses: tahminator/pipeline/actions/setup@f972931ee457aaa5c9961693055d60ddb272c3c2 # 1.0.91
+        with:
+          SECRETS: ${{ toJSON(secrets) }}
+
+      - name: Test CI scripts
+        run: bun run --cwd .github/scripts test
+
+      - name: Deploy clients
+        uses: ./.github/composite/deploy
+        with:
+          RELEASE_TAG: ${{ github.ref_name }}
